@@ -3,9 +3,13 @@ package com.example.data.repository
 import com.example.data.local.AppDatabase
 import com.example.data.local.SeedData
 import com.example.data.local.entity.CashflowEntity
+import com.example.data.local.entity.CustomerProfileEntity
+import com.example.data.local.entity.JournalEntryEntity
+import com.example.data.local.entity.MarketplaceOrderEntity
 import com.example.data.local.entity.ProductEntity
 import com.example.data.local.entity.ShiftEntity
 import com.example.data.local.entity.StockInLogEntity
+import com.example.data.local.entity.SupplierOrderEntity
 import com.example.data.local.entity.TransactionEntity
 import com.example.data.local.entity.TransactionItemEntity
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +24,10 @@ class PosRepository(private val database: AppDatabase) {
     private val itemDao = database.transactionItemDao()
     private val stockLogDao = database.stockInLogDao()
     private val cashflowDao = database.cashflowDao()
+    private val journalEntryDao = database.journalEntryDao()
+    private val supplierOrderDao = database.supplierOrderDao()
+    private val customerProfileDao = database.customerProfileDao()
+    private val marketplaceOrderDao = database.marketplaceOrderDao()
 
     val allProducts: Flow<List<ProductEntity>> = productDao.getAllProducts()
     val lowStockProducts: Flow<List<ProductEntity>> = productDao.getLowStockProducts()
@@ -31,6 +39,10 @@ class PosRepository(private val database: AppDatabase) {
     val allTransactionItems: Flow<List<TransactionItemEntity>> = itemDao.getAllTransactionItems()
     val allStockInLogs: Flow<List<StockInLogEntity>> = stockLogDao.getAllLogs()
     val allCashflows: Flow<List<CashflowEntity>> = cashflowDao.getAllCashflows()
+    val allJournalEntries: Flow<List<JournalEntryEntity>> = journalEntryDao.getAllEntries()
+    val allSupplierOrders: Flow<List<SupplierOrderEntity>> = supplierOrderDao.getAllOrders()
+    val allCustomers: Flow<List<CustomerProfileEntity>> = customerProfileDao.getAllCustomers()
+    val allMarketplaceOrders: Flow<List<MarketplaceOrderEntity>> = marketplaceOrderDao.getAllMarketplaceOrders()
 
     suspend fun initializeDatabaseIfEmpty() = withContext(Dispatchers.IO) {
         val existingProducts = productDao.getAllProducts().first()
@@ -48,6 +60,10 @@ class PosRepository(private val database: AppDatabase) {
             seedResult.cashflows.forEach { cf ->
                 cashflowDao.insertCashflow(cf)
             }
+            journalEntryDao.insertEntries(seedResult.journalEntries)
+            supplierOrderDao.insertOrders(seedResult.supplierOrders)
+            customerProfileDao.insertCustomers(seedResult.customerProfiles)
+            marketplaceOrderDao.insertOrders(seedResult.marketplaceOrders)
         }
     }
 
@@ -284,32 +300,54 @@ class PosRepository(private val database: AppDatabase) {
 
     // Stock In / Restock actions
     suspend fun recordStockIn(
-        productId: Long,
+        productId: Long?,
         productName: String,
         category: String,
         supplierName: String,
         quantity: Int,
+        unit: String = "Pcs",
         unitPrice: Double,
         totalCost: Double,
         paymentSource: String,
-        notes: String?
+        notes: String?,
+        batchNumber: String = "",
+        addToCatalog: Boolean = false,
+        catalogSellingPrice: Double = 0.0
     ) = withContext(Dispatchers.IO) {
+        var finalProductId = productId
+
+        // If user wants to automatically add this custom raw material to catalog as well
+        if ((finalProductId == null || finalProductId <= 0L) && addToCatalog) {
+            val newProduct = ProductEntity(
+                name = productName,
+                category = category,
+                price = if (catalogSellingPrice > 0) catalogSellingPrice else (unitPrice * 1.3),
+                costPrice = unitPrice,
+                stock = quantity,
+                unit = unit,
+                isAvailable = true
+            )
+            finalProductId = productDao.insertProduct(newProduct)
+        } else if (finalProductId != null && finalProductId > 0L) {
+            // Increase existing product stock
+            productDao.increaseStock(finalProductId, quantity)
+        }
+
         val log = StockInLogEntity(
-            productId = productId,
+            productId = finalProductId,
             productName = productName,
             category = category,
             timestamp = System.currentTimeMillis(),
             supplierName = supplierName,
             quantity = quantity,
+            unit = unit,
             unitPrice = unitPrice,
             totalCost = totalCost,
             paymentSource = paymentSource,
-            notes = notes
+            notes = notes,
+            batchNumber = if (batchNumber.isNotBlank()) batchNumber else "PO-${System.currentTimeMillis() % 1000000}"
         )
         stockLogDao.insertLog(log)
-
-        // Increase product stock & update cost price if provided
-        productDao.increaseStock(productId, quantity)
 
         // Auto record cashflow (KREDIT / BELANJA_STOK)
         val activeShift = shiftDao.getActiveShiftOnce()
@@ -321,8 +359,8 @@ class PosRepository(private val database: AppDatabase) {
                 businessUnit = category,
                 amount = totalCost,
                 paymentMethod = if (paymentSource == "KAS_LACI") "CASH" else "BANK",
-                description = "Beli Bahan: $productName ($quantity $category) dari $supplierName",
-                referenceId = "STOCK-IN-${System.currentTimeMillis() % 10000}",
+                description = "Beli Bahan: $productName ($quantity $unit) dari $supplierName",
+                referenceId = log.batchNumber,
                 shiftId = activeShift?.id
             )
         )
@@ -350,5 +388,125 @@ class PosRepository(private val database: AppDatabase) {
                 shiftId = shiftId
             )
         )
+    }
+
+    // Journal Actions (Kas & Jurnal Umum Double-Entry)
+    suspend fun addJournalEntry(
+        entryNumber: String,
+        accountCode: String,
+        accountName: String,
+        description: String,
+        debit: Long,
+        credit: Long,
+        unitCategory: String,
+        referenceId: String? = null,
+        authorizedBy: String = "Owner"
+    ) = withContext(Dispatchers.IO) {
+        journalEntryDao.insertEntry(
+            JournalEntryEntity(
+                entryNumber = entryNumber,
+                timestamp = System.currentTimeMillis(),
+                accountCode = accountCode,
+                accountName = accountName,
+                description = description,
+                debit = debit,
+                credit = credit,
+                unitCategory = unitCategory,
+                referenceId = referenceId,
+                authorizedBy = authorizedBy,
+                isSyncedCloud = true
+            )
+        )
+    }
+
+    // Supplier Order Actions (PO Supplier & Invoice)
+    suspend fun createSupplierOrder(
+        poNumber: String,
+        supplierName: String,
+        supplierEmail: String,
+        supplierPhone: String,
+        category: String,
+        dueDate: Long,
+        itemsSummary: String,
+        totalAmount: Long,
+        notes: String
+    ) = withContext(Dispatchers.IO) {
+        supplierOrderDao.insertOrder(
+            SupplierOrderEntity(
+                poNumber = poNumber,
+                supplierName = supplierName,
+                supplierEmail = supplierEmail,
+                supplierPhone = supplierPhone,
+                category = category,
+                orderDate = System.currentTimeMillis(),
+                dueDate = dueDate,
+                itemsSummary = itemsSummary,
+                totalAmount = totalAmount,
+                status = "SENT",
+                notes = notes,
+                isSyncedCloud = true
+            )
+        )
+    }
+
+    suspend fun updateSupplierOrderStatus(order: SupplierOrderEntity, newStatus: String) = withContext(Dispatchers.IO) {
+        supplierOrderDao.updateOrder(order.copy(status = newStatus))
+    }
+
+    // Customer CRM & Loyalty Actions
+    suspend fun addOrUpdateCustomer(
+        name: String,
+        phone: String,
+        email: String,
+        favoriteItem: String,
+        pointsToAdd: Int,
+        spentAmount: Long
+    ) = withContext(Dispatchers.IO) {
+        val existing = customerProfileDao.getCustomerByPhone(phone)
+        if (existing != null) {
+            val updatedPoints = existing.loyaltyPoints + pointsToAdd
+            val updatedSpent = existing.totalSpent + spentAmount
+            val updatedVisits = existing.visitCount + 1
+            val updatedTier = when {
+                updatedSpent >= 3000000 -> "VIP"
+                updatedSpent >= 1500000 -> "GOLD"
+                updatedSpent >= 500000 -> "SILVER"
+                else -> "REGULAR"
+            }
+            customerProfileDao.updateCustomer(
+                existing.copy(
+                    customerName = name.ifBlank { existing.customerName },
+                    email = email.ifBlank { existing.email },
+                    loyaltyPoints = updatedPoints,
+                    totalSpent = updatedSpent,
+                    visitCount = updatedVisits,
+                    tier = updatedTier,
+                    favoriteItem = favoriteItem.ifBlank { existing.favoriteItem },
+                    lastVisitDate = System.currentTimeMillis()
+                )
+            )
+        } else {
+            customerProfileDao.insertCustomer(
+                CustomerProfileEntity(
+                    customerName = name,
+                    phone = phone,
+                    email = email,
+                    tier = "REGULAR",
+                    loyaltyPoints = pointsToAdd,
+                    favoriteCategory = "BAR",
+                    favoriteItem = favoriteItem.ifBlank { "Tumuwuh House Blend" },
+                    totalSpent = spentAmount,
+                    visitCount = 1,
+                    lastVisitDate = System.currentTimeMillis(),
+                    activeCoupons = "WELCOME10K:Diskon Rp10.000",
+                    isSyncedCloud = true
+                )
+            )
+        }
+    }
+
+    // Marketplace Order Actions
+    suspend fun importMarketplaceOrder(order: MarketplaceOrderEntity) = withContext(Dispatchers.IO) {
+        marketplaceOrderDao.insertOrder(order)
     }
 }

@@ -28,6 +28,19 @@ val AmberOrangeLight = Color(0xFFFFFBEB) // Amber 50
 val CrimsonRed = Color(0xFFEF4444) // Rose 500
 val CrimsonRedLight = Color(0xFFFEF2F2) // Rose 50
 
+val RoseRed = Color(0xFFE11D48)
+val RoseRedLight = Color(0xFFFFE4E6)
+
+val CoffeeBrown = Color(0xFF78350F)
+val CoffeeBrownLight = Color(0xFFFEF3C7)
+val GoldAccent = Color(0xFFFBBF24)
+
+val BilliardPurple = Color(0xFF7C3AED)
+val BilliardPurpleLight = Color(0xFFEDE9FE)
+
+val GorNavy = Color(0xFF1E3A8A)
+val GorNavyLight = Color(0xFFDBEAFE)
+
 val IndigoPurple = Color(0xFF6366F1) // Indigo 500
 val IndigoPurpleLight = Color(0xFFEEF2FF)
 

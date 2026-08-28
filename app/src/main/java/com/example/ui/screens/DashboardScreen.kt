@@ -20,22 +20,38 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Leaderboard
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.SportsTennis
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +66,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,14 +82,18 @@ import com.example.ui.theme.AmberOrange
 import com.example.ui.theme.AmberOrangeLight
 import com.example.ui.theme.BarCategoryColor
 import com.example.ui.theme.BilliardCategoryColor
+import com.example.ui.theme.CoffeeBrown
 import com.example.ui.theme.CrimsonRed
 import com.example.ui.theme.CrimsonRedLight
 import com.example.ui.theme.EmeraldGreen
 import com.example.ui.theme.EmeraldGreenDark
 import com.example.ui.theme.EmeraldGreenLight
+import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GorCategoryColor
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.PrimaryBlueLight
+import com.example.ui.theme.RoseRed
+import com.example.ui.theme.RoseRedLight
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
@@ -88,6 +110,7 @@ import com.example.util.FormatUtils
 
 @Composable
 fun DashboardScreen(viewModel: PosViewModel) {
+    val context = LocalContext.current
     val startDate by viewModel.dashboardStartDate.collectAsState()
     val endDate by viewModel.dashboardEndDate.collectAsState()
     val dateMode by viewModel.dateSelectionMode.collectAsState()
@@ -103,6 +126,12 @@ fun DashboardScreen(viewModel: PosViewModel) {
 
     val top5Products by viewModel.topSellingProducts.collectAsState()
     val allSoldProducts by viewModel.allSoldProductsInPeriod.collectAsState()
+
+    val cloudStatus by viewModel.cloudSyncStatus.collectAsState()
+    val showControlCenter by viewModel.showControlCenter.collectAsState()
+    val financialStatement by viewModel.financialStatement.collectAsState()
+    val notifications by viewModel.notifications.collectAsState()
+    val lowStockProducts by viewModel.lowStockProducts.collectAsState()
 
     var showProductDetailDialog by remember { mutableStateOf(false) }
     var showCalendarPicker by remember { mutableStateOf(false) }
@@ -220,6 +249,240 @@ fun DashboardScreen(viewModel: PosViewModel) {
                         color = if (activeShift != null) EmeraldGreenDark else AmberOrange,
                         letterSpacing = 0.5.sp
                     )
+                }
+            }
+        }
+
+        // 1.5. Hero Cloud Database & Web Business Control Center Connection Button
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("dashboard_cloud_connect_hero"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Slate900)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(if (cloudStatus.isOnline) EmeraldGreen else RoseRed)
+                            )
+                            Text(
+                                text = when {
+                                    cloudStatus.isSyncing -> "SINKRONISASI DATABASE..."
+                                    cloudStatus.isOfflineModeManual -> "MODE OFFLINE MANUAL AKTIF"
+                                    cloudStatus.isOnline -> "DATABASE ONLINE REAL-TIME"
+                                    else -> "OFFLINE (MENYIMPAN LOKAL)"
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (cloudStatus.isOnline && !cloudStatus.isOfflineModeManual) EmeraldGreenLight else AmberOrange,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+
+                        // Toggle Mode Offline / Online Button
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.toggleOfflineMode(!cloudStatus.isOfflineModeManual) },
+                            color = if (cloudStatus.isOfflineModeManual) AmberOrange.copy(alpha = 0.2f) else Slate800,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (cloudStatus.isOfflineModeManual) AmberOrange else Slate700)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (cloudStatus.isOfflineModeManual) Icons.Default.CloudOff else Icons.Default.CloudDone,
+                                    contentDescription = null,
+                                    tint = if (cloudStatus.isOfflineModeManual) AmberOrange else EmeraldGreen,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = if (cloudStatus.isOfflineModeManual) "OFFLINE" else "ONLINE",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (cloudStatus.isOfflineModeManual) AmberOrange else EmeraldGreenLight
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Pusat Kendali Bisnis & Sinkronisasi Website",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = White
+                    )
+                    Text(
+                        text = "Kelola Laporan Laba Rugi, Jurnal Umum, PO Supplier Email, CRM Pelanggan, & e-Faktur terpusat.",
+                        fontSize = 11.sp,
+                        color = Slate400,
+                        lineHeight = 15.sp
+                    )
+
+                    if (cloudStatus.pendingOfflineRecords > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = AmberOrange.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AmberOrange.copy(alpha = 0.4f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Default.CloudSync, contentDescription = null, tint = AmberOrange, modifier = Modifier.size(16.dp))
+                                    Text(
+                                        text = "${cloudStatus.pendingOfflineRecords} Data antrean offline siap disinkron",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = White
+                                    )
+                                }
+                                Text(
+                                    text = "Klik Sync di kanan",
+                                    fontSize = 10.sp,
+                                    color = AmberOrange,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Main Click Button: Buka Pusat Kendali
+                        Button(
+                            onClick = { viewModel.setControlCenterVisible(true) },
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .testTag("open_business_control_center_button"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = CoffeeBrown)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Assessment,
+                                contentDescription = "Pusat Kendali",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Pusat Kendali", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // Button Buka Web Portal
+                        OutlinedButton(
+                            onClick = { viewModel.setNavTab(2) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("open_web_dashboard_button"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GoldAccent),
+                            border = ButtonDefaults.outlinedButtonBorder(enabled = true)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.OpenInBrowser,
+                                contentDescription = "Website",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Web Portal", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // 1-Click Cloud Sync Button
+                        IconButton(
+                            onClick = { viewModel.syncOnlineCloudDatabase() },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Slate800)
+                                .testTag("quick_sync_button")
+                        ) {
+                            if (cloudStatus.isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = GoldAccent,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Sync,
+                                    contentDescription = "Sync",
+                                    tint = GoldAccent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Low Stock / Business Notification Alert Banner
+        if (lowStockProducts.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.setControlCenterVisible(true) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = RoseRedLight),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, RoseRed.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(RoseRed),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = "Alert", tint = White, modifier = Modifier.size(18.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Peringatan: ${lowStockProducts.size} Bahan Baku Menipis!",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = RoseRed
+                            )
+                            Text(
+                                text = "${lowStockProducts.joinToString(", ") { it.name.take(15) }} di bawah limit. Klik untuk buat PO supplier.",
+                                fontSize = 10.sp,
+                                color = Slate700
+                            )
+                        }
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Detail", tint = RoseRed, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
         }
@@ -510,6 +773,117 @@ fun DashboardScreen(viewModel: PosViewModel) {
             }
         }
 
+        // 6.5. Business Control Center Quick Overview Widget Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.setControlCenterVisible(true) },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Slate100),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Slate900),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Assessment, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(18.dp))
+                            }
+                            Column {
+                                Text("Laporan Keuangan & Rasio", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Slate900)
+                                Text("P&L, Neraca, Jurnal, PO & e-Faktur", fontSize = 10.sp, color = Slate500)
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("Buka Detail", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CoffeeBrown)
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = CoffeeBrown, modifier = Modifier.size(14.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White)
+                                .padding(8.dp)
+                        ) {
+                            Column {
+                                Text("Laba Bersih", fontSize = 9.sp, color = Slate400)
+                                Text(
+                                    text = FormatUtils.formatCompactRupiah(financialStatement.netProfit),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (financialStatement.netProfit >= 0) EmeraldGreenDark else RoseRed
+                                )
+                                Text("Margin: ${String.format(java.util.Locale.getDefault(), "%.1f", financialStatement.netMarginPercentage)}%", fontSize = 9.sp, color = Slate500)
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White)
+                                .padding(8.dp)
+                        ) {
+                            Column {
+                                Text("Total Aset Lancar", fontSize = 9.sp, color = Slate400)
+                                Text(
+                                    text = FormatUtils.formatCompactRupiah(financialStatement.totalCurrentAssets),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate900
+                                )
+                                Text("CR: ${String.format(java.util.Locale.getDefault(), "%.2f", financialStatement.currentRatio)}x", fontSize = 9.sp, color = Slate500)
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White)
+                                .padding(8.dp)
+                        ) {
+                            Column {
+                                Text("Pajak e-Faktur", fontSize = 9.sp, color = Slate400)
+                                Text(
+                                    text = "PPN 11%",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CoffeeBrown
+                                )
+                                Text("PPh Final 0.5%", fontSize = 9.sp, color = Slate500)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // 7. High Density Best-Selling Products (Produk Terlaris 01 - 05)
         item {
             WhiteCard(
@@ -619,6 +993,14 @@ fun DashboardScreen(viewModel: PosViewModel) {
             products = allSoldProducts,
             dateRangeLabel = dateRangeLabel,
             onDismiss = { showProductDetailDialog = false }
+        )
+    }
+
+    // Business Control Center & Cloud Sync Modal Sheet
+    if (showControlCenter) {
+        BusinessControlCenterSheet(
+            viewModel = viewModel,
+            onDismiss = { viewModel.setControlCenterVisible(false) }
         )
     }
 }

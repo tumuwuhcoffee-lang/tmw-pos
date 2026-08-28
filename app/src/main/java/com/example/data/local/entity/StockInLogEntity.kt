@@ -7,14 +7,16 @@ import androidx.room.PrimaryKey
 data class StockInLogEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val productId: Long,
+    val productId: Long? = null, // null if custom raw material not tied to menu
     val productName: String,
-    val category: String, // "BAR", "BILLIARD", "GOR"
+    val category: String, // "BAR", "BILLIARD", "GOR", "OPERASIONAL"
     val timestamp: Long = System.currentTimeMillis(),
     val supplierName: String,
     val quantity: Int,
+    val unit: String = "Pcs", // "kg", "liter", "pack", "dus", "pcs", "ikat", "botol", "kaleng"
     val unitPrice: Double,
     val totalCost: Double,
     val paymentSource: String = "KAS_LACI", // "KAS_LACI", "BANK_TRANSFER"
-    val notes: String? = null
+    val notes: String? = null,
+    val batchNumber: String = ""
 )

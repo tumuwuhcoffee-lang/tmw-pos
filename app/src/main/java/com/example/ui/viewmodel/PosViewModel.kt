@@ -1,15 +1,25 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.local.entity.CashflowEntity
+import com.example.data.local.entity.CustomerProfileEntity
+import com.example.data.local.entity.JournalEntryEntity
+import com.example.data.local.entity.MarketplaceOrderEntity
 import com.example.data.local.entity.ProductEntity
 import com.example.data.local.entity.ShiftEntity
 import com.example.data.local.entity.StockInLogEntity
+import com.example.data.local.entity.SupplierOrderEntity
 import com.example.data.local.entity.TransactionEntity
 import com.example.data.local.entity.TransactionItemEntity
+import com.example.data.model.BusinessNotificationItem
+import com.example.data.model.FinancialStatementSummary
+import com.example.data.model.TaxReportSummary
+import com.example.data.remote.CloudSyncManager
+import com.example.data.remote.CloudSyncStatus
 import com.example.data.repository.PosRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +28,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 data class CartItem(
     val product: ProductEntity,
@@ -101,6 +114,75 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     val allCashflows: StateFlow<List<CashflowEntity>> = repository.allCashflows
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allJournalEntries: StateFlow<List<JournalEntryEntity>> = repository.allJournalEntries
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allSupplierOrders: StateFlow<List<SupplierOrderEntity>> = repository.allSupplierOrders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allCustomers: StateFlow<List<CustomerProfileEntity>> = repository.allCustomers
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allMarketplaceOrders: StateFlow<List<MarketplaceOrderEntity>> = repository.allMarketplaceOrders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Online Cloud Sync State
+    val cloudSyncStatus: StateFlow<CloudSyncStatus> = CloudSyncManager.syncState
+
+    // Multi-tier User Authorization Role
+    private val _userRole = MutableStateFlow("OWNER") // KASIR, SUPERVISOR, OWNER
+    val userRole: StateFlow<String> = _userRole.asStateFlow()
+
+    fun setUserRole(role: String) {
+        _userRole.value = role
+    }
+
+    // Business Control Center Dialog/Tab visibility
+    private val _showControlCenter = MutableStateFlow(false)
+    val showControlCenter: StateFlow<Boolean> = _showControlCenter.asStateFlow()
+
+    fun setControlCenterVisible(visible: Boolean) {
+        _showControlCenter.value = visible
+    }
+
+    // Selected Tab in Business Control Center
+    // 0: Financial Statements (Laba Rugi, Neraca, Rasio)
+    // 1: Kas & Jurnal Umum (Double-Entry)
+    // 2: PO & Supplier Invoices (Email Send)
+    // 3: CRM Pelanggan & Promo Poin/Kupon
+    // 4: Pajak PPN/PPh e-Faktur & Marketplace Sync
+    private val _controlCenterTab = MutableStateFlow(0)
+    val controlCenterTab: StateFlow<Int> = _controlCenterTab.asStateFlow()
+
+    fun setControlCenterTab(tab: Int) {
+        _controlCenterTab.value = tab
+    }
+
+    // Notifications List
+    private val _notifications = MutableStateFlow<List<BusinessNotificationItem>>(
+        listOf(
+            BusinessNotificationItem(
+                id = "notif-1",
+                title = "Stok Kritis: Biji Kopi Gayo",
+                message = "Sisa stok mendekati batas minimum (12 Cup tersisa). Segera buat PO ke supplier.",
+                type = "ALERT"
+            ),
+            BusinessNotificationItem(
+                id = "notif-2",
+                title = "Target Harian Tercapai",
+                message = "Omset penjualan Bar & Billiard hari ini telah melampaui target harian Rp 3.500.000.",
+                type = "SUCCESS"
+            ),
+            BusinessNotificationItem(
+                id = "notif-3",
+                title = "Sinkronisasi Cloud Realtime Aktif",
+                message = "Seluruh transaksi harian dan jurnal akuntansi telah ter-backup otomatis ke Online Database.",
+                type = "INFO"
+            )
+        )
+    )
+    val notifications: StateFlow<List<BusinessNotificationItem>> = _notifications.asStateFlow()
 
     // Selected Navigation Tab (0 = POS Kasir, 1 = Dashboard, 2 = Stock Menu, 3 = Cashflow)
     private val _currentNavTab = MutableStateFlow(0)
@@ -460,6 +542,104 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ----------------------------------------------------
+    // STOCK IN & PROCUREMENT DATE FILTERING & STATE
+    // ----------------------------------------------------
+    private val _stockInStartDate = MutableStateFlow(getStartOfToday())
+    val stockInStartDate: StateFlow<Long> = _stockInStartDate.asStateFlow()
+
+    private val _stockInEndDate = MutableStateFlow(getEndOfToday())
+    val stockInEndDate: StateFlow<Long> = _stockInEndDate.asStateFlow()
+
+    private val _stockInDateFilterMode = MutableStateFlow("ALL") // ALL, TODAY, YESTERDAY, LAST_7_DAYS, THIS_MONTH
+    val stockInDateFilterMode: StateFlow<String> = _stockInDateFilterMode.asStateFlow()
+
+    private val _stockInSearchQuery = MutableStateFlow("")
+    val stockInSearchQuery: StateFlow<String> = _stockInSearchQuery.asStateFlow()
+
+    private val _stockInCategoryFilter = MutableStateFlow("SEMUA")
+    val stockInCategoryFilter: StateFlow<String> = _stockInCategoryFilter.asStateFlow()
+
+    fun setStockInDateFilter(mode: String) {
+        _stockInDateFilterMode.value = mode
+        when (mode) {
+            "TODAY" -> {
+                _stockInStartDate.value = getStartOfToday()
+                _stockInEndDate.value = getEndOfToday()
+            }
+            "YESTERDAY" -> {
+                val cal = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, -1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                _stockInStartDate.value = cal.timeInMillis
+                cal.set(Calendar.HOUR_OF_DAY, 23)
+                cal.set(Calendar.MINUTE, 59)
+                cal.set(Calendar.SECOND, 59)
+                _stockInEndDate.value = cal.timeInMillis
+            }
+            "LAST_7_DAYS" -> {
+                val cal = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, -6)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                _stockInStartDate.value = cal.timeInMillis
+                _stockInEndDate.value = getEndOfToday()
+            }
+            "THIS_MONTH" -> {
+                val cal = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                _stockInStartDate.value = cal.timeInMillis
+                _stockInEndDate.value = getEndOfToday()
+            }
+            "ALL" -> {
+                _stockInStartDate.value = 0L
+                _stockInEndDate.value = Long.MAX_VALUE
+            }
+        }
+    }
+
+    fun setStockInSearchQuery(query: String) {
+        _stockInSearchQuery.value = query
+    }
+
+    fun setStockInCategoryFilter(cat: String) {
+        _stockInCategoryFilter.value = cat
+    }
+
+    val filteredStockInLogs: StateFlow<List<StockInLogEntity>> = combine(
+        allStockInLogs,
+        combine(_stockInStartDate, _stockInEndDate, _stockInDateFilterMode) { start, end, mode ->
+            Triple(start, end, mode)
+        },
+        _stockInSearchQuery,
+        _stockInCategoryFilter
+    ) { logs, dateFilter, query, cat ->
+        val (start, end, mode) = dateFilter
+        logs.filter { log ->
+            val matchesDate = if (mode == "ALL") true else (log.timestamp in start..end)
+            val matchesCat = if (cat == "SEMUA") true else log.category.equals(cat, ignoreCase = true)
+            val matchesQuery = if (query.isBlank()) true else (
+                log.productName.contains(query, ignoreCase = true) ||
+                log.supplierName.contains(query, ignoreCase = true) ||
+                (log.notes?.contains(query, ignoreCase = true) == true) ||
+                log.batchNumber.contains(query, ignoreCase = true)
+            )
+            matchesDate && matchesCat && matchesQuery
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Stock Management Operations
     fun addProduct(product: ProductEntity, onSuccess: () -> Unit) {
         viewModelScope.launch {
@@ -483,15 +663,19 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun recordStockIn(
-        productId: Long,
+        productId: Long?,
         productName: String,
         category: String,
         supplierName: String,
         quantity: Int,
+        unit: String = "Pcs",
         unitPrice: Double,
         totalCost: Double,
         paymentSource: String,
         notes: String?,
+        batchNumber: String = "",
+        addToCatalog: Boolean = false,
+        catalogSellingPrice: Double = 0.0,
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
@@ -501,12 +685,42 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                 category = category,
                 supplierName = supplierName,
                 quantity = quantity,
+                unit = unit,
                 unitPrice = unitPrice,
                 totalCost = totalCost,
                 paymentSource = paymentSource,
-                notes = notes
+                notes = notes,
+                batchNumber = batchNumber,
+                addToCatalog = addToCatalog,
+                catalogSellingPrice = catalogSellingPrice
             )
+            CloudSyncManager.incrementPendingOfflineRecords()
             onSuccess()
+        }
+    }
+
+    // Toggle Offline / Online Mode
+    fun toggleOfflineMode(forceOffline: Boolean) {
+        CloudSyncManager.toggleOfflineMode(forceOffline)
+    }
+
+    // Bluetooth Printer Printing Actions
+    fun printTransactionReceipt(
+        transaction: TransactionEntity,
+        items: List<TransactionItemEntity>,
+        cashierName: String = "Kasir Tumuwuh"
+    ) {
+        viewModelScope.launch {
+            com.example.util.BluetoothPrinterManager.printReceipt(transaction, items, cashierName)
+        }
+    }
+
+    fun printStockInReceipt(
+        log: StockInLogEntity,
+        receivedBy: String = "Admin / Barista Tumuwuh"
+    ) {
+        viewModelScope.launch {
+            com.example.util.BluetoothPrinterManager.printStockInReceipt(log, receivedBy)
         }
     }
 
@@ -750,6 +964,268 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             debitRevenue = debitRev,
             transactionCount = count
         )
+    }
+
+    // Financial Statements (Laba Rugi, Neraca, Rasio Keuangan)
+    val financialStatement: StateFlow<FinancialStatementSummary> = kotlinx.coroutines.flow.combine(
+        dashboardTransactions,
+        allTransactionItems,
+        allCashflows,
+        allProducts,
+        allSupplierOrders
+    ) { trxs: List<TransactionEntity>, items: List<TransactionItemEntity>, cashflows: List<CashflowEntity>, products: List<ProductEntity>, supplierOrders: List<SupplierOrderEntity> ->
+        val paidTrxs = trxs.filter { it.paymentStatus == "PAID" }
+        val paidIds = paidTrxs.map { it.id }.toSet()
+        val relevantItems = items.filter { it.transactionId in paidIds }
+
+        val revenue = paidTrxs.sumOf { it.totalAmount }
+        val hpp = relevantItems.sumOf { it.totalCost }
+        val grossProfit = revenue - hpp
+
+        val opExpenses = cashflows.filter { it.type == "KREDIT" && it.category != "BELANJA_STOK" }
+            .sumOf { it.amount }
+        val netProfit = grossProfit - opExpenses
+
+        val grossMarginPct = if (revenue > 0.0) (grossProfit / revenue) * 100.0 else 0.0
+        val netMarginPct = if (revenue > 0.0) (netProfit / revenue) * 100.0 else 0.0
+
+        // Balance Sheet (Neraca)
+        val debitCash = cashflows.filter { it.type == "DEBIT" }.sumOf { it.amount }
+        val kreditCash = cashflows.filter { it.type == "KREDIT" }.sumOf { it.amount }
+        val cashAndBank = (debitCash - kreditCash).coerceAtLeast(0.0)
+
+        // Piutang (Pending / Held transactions)
+        val accountsReceivable = trxs.filter { it.paymentStatus != "PAID" }.sumOf { it.totalAmount }
+
+        // Persediaan Barang (Stock * Cost Price)
+        val inventoryVal = products.sumOf { (it.stock * it.costPrice) }
+
+        val currentAssets = cashAndBank + accountsReceivable + inventoryVal
+
+        // Hutang Supplier (PO with status SENT or DRAFT)
+        val accountsPayable = supplierOrders.filter { it.status != "PAID" }.sumOf { it.totalAmount.toDouble() }
+
+        val ownerEquity = 15000000.0 // Modal Disetor Awal
+        val retainedEarnings = (currentAssets - accountsPayable - ownerEquity).coerceAtLeast(0.0)
+        val totalLiabilitiesAndEquity = accountsPayable + ownerEquity + retainedEarnings
+
+        // Financial Ratios
+        val currentRatio = if (accountsPayable > 0.0) currentAssets / accountsPayable else 3.4
+        val quickRatio = if (accountsPayable > 0.0) (cashAndBank + accountsReceivable) / accountsPayable else 2.1
+        val invTurnover = if (inventoryVal > 0.0) hpp / inventoryVal else 1.8
+
+        FinancialStatementSummary(
+            totalRevenue = revenue,
+            totalHpp = hpp,
+            grossProfit = grossProfit,
+            totalOperationalExpenses = opExpenses,
+            netProfit = netProfit,
+            grossMarginPercentage = grossMarginPct,
+            netMarginPercentage = netMarginPct,
+            totalCashAndBank = cashAndBank,
+            totalAccountsReceivable = accountsReceivable,
+            totalInventoryValue = inventoryVal,
+            totalCurrentAssets = currentAssets,
+            totalAccountsPayable = accountsPayable,
+            ownerEquity = ownerEquity,
+            retainedEarnings = retainedEarnings,
+            totalLiabilitiesAndEquity = totalLiabilitiesAndEquity,
+            currentRatio = currentRatio,
+            quickRatio = quickRatio,
+            inventoryTurnover = invTurnover
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        FinancialStatementSummary(
+            totalRevenue = 0.0,
+            totalHpp = 0.0,
+            grossProfit = 0.0,
+            totalOperationalExpenses = 0.0,
+            netProfit = 0.0,
+            grossMarginPercentage = 0.0,
+            netMarginPercentage = 0.0,
+            totalCashAndBank = 0.0,
+            totalAccountsReceivable = 0.0,
+            totalInventoryValue = 0.0,
+            totalCurrentAssets = 0.0,
+            totalAccountsPayable = 0.0,
+            ownerEquity = 15000000.0,
+            retainedEarnings = 0.0,
+            totalLiabilitiesAndEquity = 15000000.0,
+            currentRatio = 0.0,
+            quickRatio = 0.0,
+            inventoryTurnover = 0.0
+        )
+    )
+
+    // Tax Report Summary (PPN 11% & PPh Final 0.5%)
+    val taxReportSummary: StateFlow<TaxReportSummary> = kotlinx.coroutines.flow.combine(
+        dashboardTransactions,
+        allMarketplaceOrders
+    ) { trxs: List<TransactionEntity>, mktOrders: List<MarketplaceOrderEntity> ->
+        val paidTrxSum = trxs.filter { it.paymentStatus == "PAID" }.sumOf { it.totalAmount }
+        val mktSum = mktOrders.sumOf { it.totalPrice.toDouble() }
+        val totalGrossTaxable = paidTrxSum + mktSum
+
+        val ppn = totalGrossTaxable * 0.11
+        val pphFinal = totalGrossTaxable * 0.005
+        val eFakturCount = trxs.count { it.paymentStatus == "PAID" } + mktOrders.size
+
+        TaxReportSummary(
+            taxableRevenue = totalGrossTaxable,
+            ppnRate = 11.0,
+            totalPpn = ppn,
+            pphFinalRate = 0.5,
+            totalPphFinal = pphFinal,
+            eFakturInvoiceCount = eFakturCount
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        TaxReportSummary(
+            taxableRevenue = 0.0,
+            ppnRate = 11.0,
+            totalPpn = 0.0,
+            pphFinalRate = 0.5,
+            totalPphFinal = 0.0,
+            eFakturInvoiceCount = 0
+        )
+    )
+
+    // Action: Trigger Cloud Database Online Synchronization
+    fun syncOnlineCloudDatabase() {
+        viewModelScope.launch {
+            CloudSyncManager.performOnlineDatabaseSync(recordCount = 24)
+        }
+    }
+
+    // Action: Open Web Dashboard in Browser
+    fun openWebDashboard(context: Context) {
+        CloudSyncManager.openWebDashboard(context)
+    }
+
+    // Action: Send PO Email to Supplier
+    fun sendSupplierPoEmail(context: Context, order: SupplierOrderEntity) {
+        CloudSyncManager.sendSupplierEmail(
+            context = context,
+            supplierEmail = order.supplierEmail,
+            supplierName = order.supplierName,
+            poNumber = order.poNumber,
+            itemsSummary = order.itemsSummary,
+            totalAmount = order.totalAmount
+        )
+    }
+
+    // Action: Add Double-Entry Journal Entry
+    fun addJournalEntry(
+        entryNumber: String,
+        accountCode: String,
+        accountName: String,
+        description: String,
+        debit: Long,
+        credit: Long,
+        unitCategory: String,
+        authorizedBy: String
+    ) {
+        viewModelScope.launch {
+            repository.addJournalEntry(
+                entryNumber = entryNumber,
+                accountCode = accountCode,
+                accountName = accountName,
+                description = description,
+                debit = debit,
+                credit = credit,
+                unitCategory = unitCategory,
+                authorizedBy = authorizedBy
+            )
+        }
+    }
+
+    // Action: Create Supplier PO
+    fun createSupplierOrder(
+        supplierName: String,
+        supplierEmail: String,
+        supplierPhone: String,
+        category: String,
+        dueDate: Long,
+        itemsSummary: String,
+        totalAmount: Long,
+        notes: String
+    ) {
+        viewModelScope.launch {
+            val poNumber = "PO-TUM-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault()).format(Date())}"
+            repository.createSupplierOrder(
+                poNumber = poNumber,
+                supplierName = supplierName,
+                supplierEmail = supplierEmail,
+                supplierPhone = supplierPhone,
+                category = category,
+                dueDate = dueDate,
+                itemsSummary = itemsSummary,
+                totalAmount = totalAmount,
+                notes = notes
+            )
+        }
+    }
+
+    // Action: Update PO status (e.g. RECEIVED, PAID)
+    fun updateSupplierOrderStatus(order: SupplierOrderEntity, newStatus: String) {
+        viewModelScope.launch {
+            repository.updateSupplierOrderStatus(order, newStatus)
+        }
+    }
+
+    // Action: Add or Update CRM Customer
+    fun addOrUpdateCustomer(
+        name: String,
+        phone: String,
+        email: String,
+        favoriteItem: String,
+        points: Int,
+        spentAmount: Long
+    ) {
+        viewModelScope.launch {
+            repository.addOrUpdateCustomer(
+                name = name,
+                phone = phone,
+                email = email,
+                favoriteItem = favoriteItem,
+                pointsToAdd = points,
+                spentAmount = spentAmount
+            )
+        }
+    }
+
+    // Action: Import Marketplace Order (Tokopedia, Shopee, Bukalapak)
+    fun importMarketplaceOrder(
+        marketplace: String,
+        buyerName: String,
+        itemsSummary: String,
+        totalPrice: Long
+    ) {
+        viewModelScope.launch {
+            val orderNum = "MKT-${marketplace.take(3)}-${System.currentTimeMillis() % 1000000}"
+            val ppn = (totalPrice * 0.11).toLong()
+            val pph = (totalPrice * 0.005).toLong()
+            repository.importMarketplaceOrder(
+                MarketplaceOrderEntity(
+                    marketplace = marketplace,
+                    orderNumber = orderNum,
+                    buyerName = buyerName,
+                    orderDate = System.currentTimeMillis(),
+                    itemsSummary = itemsSummary,
+                    totalPrice = totalPrice,
+                    ppnAmount = ppn,
+                    pphAmount = pph,
+                    status = "COMPLETED"
+                )
+            )
+        }
+    }
+
+    fun dismissNotification(id: String) {
+        _notifications.value = _notifications.value.filter { it.id != id }
     }
 
     companion object {

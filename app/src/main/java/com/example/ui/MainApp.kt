@@ -9,10 +9,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.PointOfSale
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -34,6 +36,7 @@ import com.example.ui.screens.CashflowScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.PosScreen
 import com.example.ui.screens.StockMenuScreen
+import com.example.ui.screens.WebDashboardScreen
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.PrimaryBlueLight
 import com.example.ui.theme.Slate200
@@ -65,6 +68,11 @@ fun MainApp(viewModel: PosViewModel = viewModel()) {
             title = "Dashboard",
             selectedIcon = Icons.Filled.BarChart,
             unselectedIcon = Icons.Outlined.BarChart
+        ),
+        NavItem(
+            title = "Web Portal",
+            selectedIcon = Icons.Filled.Language,
+            unselectedIcon = Icons.Outlined.Language
         ),
         NavItem(
             title = "Stock Menu",
@@ -132,8 +140,9 @@ fun MainApp(viewModel: PosViewModel = viewModel()) {
             when (currentTab) {
                 0 -> PosScreen(viewModel = viewModel)
                 1 -> DashboardScreen(viewModel = viewModel)
-                2 -> StockMenuScreen(viewModel = viewModel)
-                3 -> CashflowScreen(viewModel = viewModel)
+                2 -> WebDashboardScreen(viewModel = viewModel)
+                3 -> StockMenuScreen(viewModel = viewModel)
+                4 -> CashflowScreen(viewModel = viewModel)
             }
         }
     }

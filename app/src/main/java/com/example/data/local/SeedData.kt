@@ -1,9 +1,13 @@
 package com.example.data.local
 
 import com.example.data.local.entity.CashflowEntity
+import com.example.data.local.entity.CustomerProfileEntity
+import com.example.data.local.entity.JournalEntryEntity
+import com.example.data.local.entity.MarketplaceOrderEntity
 import com.example.data.local.entity.ProductEntity
 import com.example.data.local.entity.ShiftEntity
 import com.example.data.local.entity.StockInLogEntity
+import com.example.data.local.entity.SupplierOrderEntity
 import com.example.data.local.entity.TransactionEntity
 import com.example.data.local.entity.TransactionItemEntity
 import java.util.Calendar
@@ -475,12 +479,229 @@ object SeedData {
             )
         )
 
+        // 4. Initial Double-Entry Journal Entries (Jurnal Umum)
+        val journalEntries = mutableListOf<JournalEntryEntity>()
+        journalEntries.add(
+            JournalEntryEntity(
+                entryNumber = "JU-2026-001",
+                timestamp = now - 86400000L * 2,
+                accountCode = "101-KAS",
+                accountName = "Kas & Bank Operasional",
+                description = "Setoran Modal Awal Pemilik",
+                debit = 15000000L,
+                credit = 0L,
+                unitCategory = "UMUM",
+                authorizedBy = "Owner"
+            )
+        )
+        journalEntries.add(
+            JournalEntryEntity(
+                entryNumber = "JU-2026-001",
+                timestamp = now - 86400000L * 2,
+                accountCode = "301-MODAL",
+                accountName = "Modal Usaha Tumuwuh",
+                description = "Setoran Modal Awal Pemilik",
+                debit = 0L,
+                credit = 15000000L,
+                unitCategory = "UMUM",
+                authorizedBy = "Owner"
+            )
+        )
+        journalEntries.add(
+            JournalEntryEntity(
+                entryNumber = "JU-2026-002",
+                timestamp = now - 86400000L,
+                accountCode = "102-KAS-BAR",
+                accountName = "Kas Bar Café",
+                description = "Penerimaan Kas Penjualan Bar & Kopi",
+                debit = 3450000L,
+                credit = 0L,
+                unitCategory = "BAR",
+                authorizedBy = "Supervisor"
+            )
+        )
+        journalEntries.add(
+            JournalEntryEntity(
+                entryNumber = "JU-2026-002",
+                timestamp = now - 86400000L,
+                accountCode = "401-REV-BAR",
+                accountName = "Pendapatan Penjualan Bar",
+                description = "Pendapatan Penjualan Bar & Kopi",
+                debit = 0L,
+                credit = 3450000L,
+                unitCategory = "BAR",
+                authorizedBy = "Supervisor"
+            )
+        )
+        journalEntries.add(
+            JournalEntryEntity(
+                entryNumber = "JU-2026-003",
+                timestamp = now - 3600000L * 5,
+                accountCode = "501-HPP-BAR",
+                accountName = "Beban Pokok Penjualan (HPP)",
+                description = "Pembelian Bahan Baku Biji Kopi Arabika",
+                debit = 1250000L,
+                credit = 0L,
+                unitCategory = "BAR",
+                authorizedBy = "Owner"
+            )
+        )
+        journalEntries.add(
+            JournalEntryEntity(
+                entryNumber = "JU-2026-003",
+                timestamp = now - 3600000L * 5,
+                accountCode = "101-KAS",
+                accountName = "Kas & Bank Operasional",
+                description = "Pembayaran Tunai Biji Kopi Supplier",
+                debit = 0L,
+                credit = 1250000L,
+                unitCategory = "BAR",
+                authorizedBy = "Owner"
+            )
+        )
+
+        // 5. Initial Supplier Purchase Orders (PO)
+        val supplierOrders = listOf(
+            SupplierOrderEntity(
+                id = 1,
+                poNumber = "PO-TUM-2026-081",
+                supplierName = "PT Roastery Nusantara Prima",
+                supplierEmail = "order@roasterynusantara.id",
+                supplierPhone = "081298887722",
+                category = "BAR",
+                orderDate = now - 86400000L * 3,
+                dueDate = now + 86400000L * 4,
+                itemsSummary = "10kg Specialty Arabika Gayo (Rp 1.800.000), 20L Fresh Milk Barista (Rp 400.000)",
+                totalAmount = 2200000L,
+                status = "SENT",
+                notes = "Harap roasting level medium roast untuk espresso blend."
+            ),
+            SupplierOrderEntity(
+                id = 2,
+                poNumber = "PO-TUM-2026-082",
+                supplierName = "Billiard Pro Supply Bandung",
+                supplierEmail = "sales@billiardpro.co.id",
+                supplierPhone = "081322445566",
+                category = "BILLIARD",
+                orderDate = now - 86400000L * 2,
+                dueDate = now + 86400000L * 7,
+                itemsSummary = "5 Set Master Chalk Blue (Rp 250.000), 10 Tip Kamui Original (Rp 1.100.000)",
+                totalAmount = 1350000L,
+                status = "RECEIVED",
+                notes = "Barang sudah diterima & lolos QC supervisor Billiard."
+            ),
+            SupplierOrderEntity(
+                id = 3,
+                poNumber = "PO-TUM-2026-083",
+                supplierName = "Sportindo Shuttlecock Distributor",
+                supplierEmail = "distributor@sportindo.com",
+                supplierPhone = "081177663322",
+                category = "GOR",
+                orderDate = now - 86400000L,
+                dueDate = now + 86400000L * 2,
+                itemsSummary = "20 Slop Kok Garuda International Gold Speed 78",
+                totalAmount = 2400000L,
+                status = "DRAFT",
+                notes = "Pengadaan rutin persiapan turnamen bulanan GOR Badminton."
+            )
+        )
+
+        // 6. Initial CRM Customer Insights & Loyalty Points
+        val customers = listOf(
+            CustomerProfileEntity(
+                id = 1,
+                customerName = "Bima Arya",
+                phone = "081234567890",
+                email = "bima.arya@gmail.com",
+                tier = "VIP",
+                loyaltyPoints = 340,
+                favoriteCategory = "BAR",
+                favoriteItem = "Iced Caramel Macchiato",
+                totalSpent = 3400000L,
+                visitCount = 28,
+                activeCoupons = "DISKONVIP20:Potongan 20%, NGOPIHEMAT:Diskon Rp15.000"
+            ),
+            CustomerProfileEntity(
+                id = 2,
+                customerName = "Rian Hidayat",
+                phone = "081398765432",
+                email = "rian.billiard@yahoo.com",
+                tier = "GOLD",
+                loyaltyPoints = 210,
+                favoriteCategory = "BILLIARD",
+                favoriteItem = "Sewa Meja VIP 9ft (3 Jam)",
+                totalSpent = 2100000L,
+                visitCount = 14,
+                activeCoupons = "BILLIARD1JAM:Gratis 1 Jam Main"
+            ),
+            CustomerProfileEntity(
+                id = 3,
+                customerName = "Komunitas PB Tangkas",
+                phone = "081809090909",
+                email = "pb.tangkas@badminton.id",
+                tier = "VIP",
+                loyaltyPoints = 480,
+                favoriteCategory = "GOR",
+                favoriteItem = "Sewa Lapangan Karpet Vinyl",
+                totalSpent = 4800000L,
+                visitCount = 36,
+                activeCoupons = "MEMBERGOR20:Cashback Poin 20%"
+            ),
+            CustomerProfileEntity(
+                id = 4,
+                customerName = "Sarah Melinda",
+                phone = "081912344321",
+                email = "sarah.m@gmail.com",
+                tier = "SILVER",
+                loyaltyPoints = 85,
+                favoriteCategory = "BAR",
+                favoriteItem = "Matcha Fusion Latte",
+                totalSpent = 850000L,
+                visitCount = 7,
+                activeCoupons = "WELCOME10K:Voucher Rp10.000"
+            )
+        )
+
+        // 7. Initial Marketplace Orders (Tokopedia & Shopee)
+        val marketplaceOrders = listOf(
+            MarketplaceOrderEntity(
+                id = 1,
+                marketplace = "TOKOPEDIA",
+                orderNumber = "INV/20260828/TKP/889211",
+                buyerName = "Dimas Wicaksono",
+                orderDate = now - 3600000L * 12,
+                itemsSummary = "2x Tumuwuh House Blend Coffee Beans 250g",
+                totalPrice = 180000L,
+                ppnAmount = 19800L,
+                pphAmount = 900L,
+                status = "COMPLETED",
+                isEFakturIntegrated = true
+            ),
+            MarketplaceOrderEntity(
+                id = 2,
+                marketplace = "SHOPEE",
+                orderNumber = "260828SHP819920",
+                buyerName = "Anisa Putri",
+                orderDate = now - 3600000L * 6,
+                itemsSummary = "1x Cold Brew Concentrate 1L + 1x Tumbler Tumuwuh Special Edition",
+                totalPrice = 245000L,
+                ppnAmount = 26950L,
+                pphAmount = 1225L,
+                status = "PROCESSED",
+                isEFakturIntegrated = true
+            )
+        )
+
         return InitialSeedResult(
             activeShift = activeShift,
             transactions = transactions,
             items = items,
             cashflows = cashflows,
-            stockLogs = stockLogs
+            stockLogs = stockLogs,
+            journalEntries = journalEntries,
+            supplierOrders = supplierOrders,
+            customerProfiles = customers,
+            marketplaceOrders = marketplaceOrders
         )
     }
 }
@@ -490,5 +711,9 @@ data class InitialSeedResult(
     val transactions: List<TransactionEntity>,
     val items: List<TransactionItemEntity>,
     val cashflows: List<CashflowEntity>,
-    val stockLogs: List<StockInLogEntity>
+    val stockLogs: List<StockInLogEntity>,
+    val journalEntries: List<JournalEntryEntity>,
+    val supplierOrders: List<SupplierOrderEntity>,
+    val customerProfiles: List<CustomerProfileEntity>,
+    val marketplaceOrders: List<MarketplaceOrderEntity>
 )

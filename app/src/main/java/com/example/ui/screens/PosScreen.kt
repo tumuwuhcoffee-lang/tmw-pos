@@ -82,6 +82,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.BluetoothConnected
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Print
+import com.example.ui.components.BluetoothPrinterDialog
+import com.example.util.BluetoothPrinterManager
+import com.example.util.BtPrinterStatus
+import com.example.data.remote.CloudSyncStatus
 import com.example.data.local.entity.ProductEntity
 import com.example.data.local.entity.ShiftEntity
 import com.example.data.local.entity.TransactionEntity
@@ -157,6 +166,11 @@ fun PosScreen(viewModel: PosViewModel) {
     var showPaymentSheet by remember { mutableStateOf(false) }
     var showCartSheet by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
+    var showBluetoothDialog by remember { mutableStateOf(false) }
+
+    val btStatus by BluetoothPrinterManager.connectionStatus.collectAsState()
+    val connectedBtName by BluetoothPrinterManager.connectedDeviceName.collectAsState()
+    val syncStatus by viewModel.cloudSyncStatus.collectAsState()
 
     // Direct payment for a held bill
     var directPayBillTarget by remember { mutableStateOf<TransactionEntity?>(null) }
@@ -273,7 +287,7 @@ fun PosScreen(viewModel: PosViewModel) {
                                     border = androidx.compose.foundation.BorderStroke(1.dp, AmberOrange.copy(alpha = 0.4f))
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
@@ -281,16 +295,25 @@ fun PosScreen(viewModel: PosViewModel) {
                                             imageVector = Icons.Default.BookmarkBorder,
                                             contentDescription = null,
                                             tint = AmberOrange,
-                                            modifier = Modifier.size(16.dp)
+                                            modifier = Modifier.size(15.dp)
                                         )
                                         Text(
-                                            text = "${heldBills.size} Open Bill",
+                                            text = "${heldBills.size}",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = AmberOrange
                                         )
                                     }
                                 }
+                            }
+
+                            // Bluetooth Thermal Printer quick button
+                            IconButton(onClick = { showBluetoothDialog = true }) {
+                                Icon(
+                                    imageVector = if (btStatus == BtPrinterStatus.CONNECTED || btStatus == BtPrinterStatus.SIMULATED) Icons.Default.BluetoothConnected else Icons.Default.Bluetooth,
+                                    contentDescription = "Printer Bluetooth",
+                                    tint = if (btStatus == BtPrinterStatus.CONNECTED || btStatus == BtPrinterStatus.SIMULATED) EmeraldGreen else Slate600
+                                )
                             }
 
                             if (activeShift != null) {
@@ -337,6 +360,30 @@ fun PosScreen(viewModel: PosViewModel) {
                                     expanded = showMoreMenu,
                                     onDismissRequest = { showMoreMenu = false }
                                 ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Printer Bluetooth Thermal") },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            showBluetoothDialog = true
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.Print, contentDescription = null, tint = PrimaryBlue) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(if (syncStatus.isOfflineModeManual) "Aktifkan Mode Online" else "Alihkan Mode Offline")
+                                        },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            viewModel.toggleOfflineMode(!syncStatus.isOfflineModeManual)
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = if (syncStatus.isOfflineModeManual) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                                                contentDescription = null,
+                                                tint = if (syncStatus.isOfflineModeManual) EmeraldGreen else AmberOrange
+                                            )
+                                        }
+                                    )
                                     DropdownMenuItem(
                                         text = { Text("Riwayat Shift") },
                                         onClick = {
@@ -764,6 +811,13 @@ fun PosScreen(viewModel: PosViewModel) {
             items = lastReceiptItems,
             onDismiss = { viewModel.dismissReceipt() },
             onNewTransaction = { viewModel.dismissReceipt() }
+        )
+    }
+
+    // 12. Bluetooth Printer Connection Dialog
+    if (showBluetoothDialog) {
+        BluetoothPrinterDialog(
+            onDismiss = { showBluetoothDialog = false }
         )
     }
 }
