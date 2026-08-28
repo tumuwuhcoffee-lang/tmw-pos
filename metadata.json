@@ -1,0 +1,6 @@
+{
+  "name": "Tumuwuh POS",
+  "description": "Aplikasi Kasir POS & Manajemen Multi-Unit Tumuwuh Café Coffee (Bar, Billiard, GOR) dengan sistem shift, multi-payment, dan analisis omset realtime.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
