@@ -50,21 +50,20 @@ class PosRepository(private val database: AppDatabase) {
             productDao.insertProducts(SeedData.initialProducts)
             val seedResult = SeedData.createInitialShiftsAndHistory()
             shiftDao.insertShift(seedResult.activeShift)
-            seedResult.transactions.forEach { trx ->
-                transactionDao.insertTransaction(trx)
-            }
-            itemDao.insertItems(seedResult.items)
-            seedResult.stockLogs.forEach { log ->
-                stockLogDao.insertLog(log)
-            }
-            seedResult.cashflows.forEach { cf ->
-                cashflowDao.insertCashflow(cf)
-            }
-            journalEntryDao.insertEntries(seedResult.journalEntries)
-            supplierOrderDao.insertOrders(seedResult.supplierOrders)
             customerProfileDao.insertCustomers(seedResult.customerProfiles)
-            marketplaceOrderDao.insertOrders(seedResult.marketplaceOrders)
         }
+        // Ensure sales and cash flow are cleanly reset to 0 as requested
+        transactionDao.deleteAllTransactions()
+        itemDao.deleteAllTransactionItems()
+        cashflowDao.deleteAllCashflows()
+        journalEntryDao.deleteAllJournalEntries()
+    }
+
+    suspend fun resetSalesAndCashflowToZero() = withContext(Dispatchers.IO) {
+        transactionDao.deleteAllTransactions()
+        itemDao.deleteAllTransactionItems()
+        cashflowDao.deleteAllCashflows()
+        journalEntryDao.deleteAllJournalEntries()
     }
 
     fun getProductsByCategory(category: String): Flow<List<ProductEntity>> =

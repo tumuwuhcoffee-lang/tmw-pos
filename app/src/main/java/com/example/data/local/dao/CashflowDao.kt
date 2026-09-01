@@ -20,4 +20,7 @@ interface CashflowDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCashflow(cashflow: CashflowEntity): Long
+
+    @Query("DELETE FROM cashflow")
+    suspend fun deleteAllCashflows()
 }

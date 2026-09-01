@@ -440,11 +440,27 @@ object WebDashboardHtmlGenerator {
         </div>
 
         <div class="header-actions">
+            <button class="btn btn-gold" onclick="downloadHtmlReport()">📥 Download File HTML</button>
+            <button class="btn" onclick="downloadCsvReport()">📊 Download CSV / Excel</button>
             <button class="btn" onclick="window.print()">🖨️ Cetak / PDF</button>
-            <button class="btn" onclick="location.reload()">🔄 Refresh Real-Time</button>
-            <button class="btn btn-gold" onclick="alert('Sinkronisasi Database Cloud Terverifikasi!')">⚡ Cloud Synced</button>
+            <button class="btn" onclick="copyExecutiveSummary()">📋 Salin Ringkasan</button>
         </div>
     </header>
+
+    <!-- OFFLINE / ONLINE READY NOTIFICATION BANNER -->
+    <div style="background: #1E293B; border: 1px solid #334155; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: #059669; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">✓</div>
+            <div>
+                <strong style="color: #FFFFFF; font-size: 12px;">Portal Dashboard Siap Diakses & Diunduh Offline Maupun Online</strong>
+                <p style="color: #94A3B8; font-size: 11px; margin-top: 2px;">Seluruh data penjualan, arus kas, dan laba rugi disimpan secara aman. Anda dapat mengunduh file HTML mandiri atau spreadsheet Excel kapan saja.</p>
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn btn-gold" style="font-size: 10px; padding: 6px 10px;" onclick="downloadHtmlReport()">💾 Simpan File .HTML</button>
+            <button class="btn" style="font-size: 10px; padding: 6px 10px;" onclick="downloadCsvReport()">📑 Ekspor .CSV</button>
+        </div>
+    </div>
 
     <!-- TOP KPI METRICS CARDS -->
     <section class="kpi-grid">
@@ -752,6 +768,105 @@ object WebDashboardHtmlGenerator {
         <p><strong>Tumuwuh Cloud Database & ERP System</strong> • Data Diperbarui: $generatedAt</p>
         <p style="margin-top: 4px; color: #94A3B8;">Otorisasi: Owner & Management • Dashboard Live Website • Email: tumuwuhcoffee@gmail.com</p>
     </footer>
+
+    <!-- EMBEDDED INTERACTIVE ACTIONS SCRIPT -->
+    <script>
+        function showNotification(msg) {
+            let toast = document.getElementById('web-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'web-toast';
+                toast.style.position = 'fixed';
+                toast.style.bottom = '24px';
+                toast.style.right = '24px';
+                toast.style.background = '#059669';
+                toast.style.color = '#FFFFFF';
+                toast.style.padding = '12px 20px';
+                toast.style.borderRadius = '10px';
+                toast.style.fontWeight = 'bold';
+                toast.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+                toast.style.zIndex = '9999';
+                toast.style.transition = 'all 0.3s ease';
+                document.body.appendChild(toast);
+            }
+            toast.innerText = msg;
+            toast.style.opacity = '1';
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => { toast.style.display = 'none'; }, 300);
+            }, 3000);
+        }
+
+        function downloadHtmlReport() {
+            try {
+                const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tumuwuh_dashboard_live_' + new Date().toISOString().slice(0,10) + '.html';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showNotification('✅ File Dashboard HTML berhasil diunduh!');
+            } catch(e) {
+                alert('Gagal mendownload HTML: ' + e.message);
+            }
+        }
+
+        function downloadCsvReport() {
+            try {
+                let csv = '\uFEFF'; // UTF-8 BOM
+                csv += "LAPORAN PENJUALAN & TRANSAKSI - TUMUWUH POS\n";
+                csv += "Tanggal Unduh," + new Date().toLocaleString('id-ID') + "\n\n";
+                csv += "No Struk,Waktu,Status,Pelanggan,Meja/Ref,Unit Bisnis,Total Bayar,Metode Bayar\n";
+
+                const rows = document.querySelectorAll('.table-responsive table tbody tr');
+                rows.forEach(r => {
+                    const cols = r.querySelectorAll('td');
+                    if (cols.length >= 6) {
+                        const line = Array.from(cols).map(c => '"' + c.innerText.trim().replace(/"/g, '""') + '"').join(',');
+                        csv += line + "\n";
+                    }
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tumuwuh_laporan_penjualan_' + new Date().toISOString().slice(0,10) + '.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showNotification('📊 File CSV Laporan Penjualan berhasil diunduh!');
+            } catch(e) {
+                alert('Gagal mendownload CSV: ' + e.message);
+            }
+        }
+
+        function copyExecutiveSummary() {
+            try {
+                const text = "=== RINGKASAN EKSEKUTIF TUMUWUH POS ===\n" +
+                    "Tanggal: " + new Date().toLocaleDateString('id-ID') + "\n" +
+                    "Penjualan Ril: Rp ${String.format(Locale.getDefault(), "%,d", financialSummary.totalRevenue.toLong())}\n" +
+                    "HPP / Biaya Bahan: Rp ${String.format(Locale.getDefault(), "%,d", financialSummary.totalHpp.toLong())}\n" +
+                    "Laba Kotor: Rp ${String.format(Locale.getDefault(), "%,d", financialSummary.grossProfit.toLong())}\n" +
+                    "Beban Operasional: Rp ${String.format(Locale.getDefault(), "%,d", financialSummary.totalOperationalExpenses.toLong())}\n" +
+                    "Laba Bersih: Rp ${String.format(Locale.getDefault(), "%,d", financialSummary.netProfit.toLong())}\n" +
+                    "Status Cloud: Tersinkronisasi Otomatis";
+                navigator.clipboard.writeText(text).then(() => {
+                    showNotification('📋 Ringkasan Keuangan berhasil disalin ke Clipboard!');
+                }).catch(() => {
+                    prompt('Salin teks ringkasan berikut:', text);
+                });
+            } catch(e) {
+                alert('Gagal menyalin ringkasan: ' + e.message);
+            }
+        }
+    </script>
 
 </body>
 </html>

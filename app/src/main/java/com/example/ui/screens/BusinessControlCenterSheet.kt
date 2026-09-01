@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.ShoppingBag
@@ -100,15 +101,18 @@ import com.example.ui.theme.EmeraldGreenLight
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GorNavy
 import com.example.ui.theme.GorNavyLight
+import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.RoseRed
 import com.example.ui.theme.RoseRedLight
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
+import com.example.ui.theme.Slate300
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
+import com.example.ui.theme.White
 import com.example.ui.viewmodel.PosViewModel
 import com.example.util.FormatUtils
 import java.text.SimpleDateFormat
@@ -138,6 +142,7 @@ fun BusinessControlCenterSheet(
     var showNewPoDialog by remember { mutableStateOf(false) }
     var showNewCustomerDialog by remember { mutableStateOf(false) }
     var showMarketplaceImportDialog by remember { mutableStateOf(false) }
+    var showResetConfirmationDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -209,6 +214,10 @@ fun BusinessControlCenterSheet(
                     onDismiss()
                     viewModel.setNavTab(2)
                 },
+                onOpenChromeClick = {
+                    viewModel.openWebDashboard(context)
+                },
+                onResetClick = { showResetConfirmationDialog = true },
                 onRoleChange = { newRole -> viewModel.setUserRole(newRole) }
             )
 
@@ -350,6 +359,39 @@ fun BusinessControlCenterSheet(
             }
         )
     }
+
+    if (showResetConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmationDialog = false },
+            title = {
+                Text("Reset Data Penjualan ke 0", fontWeight = FontWeight.Bold, color = Slate900)
+            },
+            text = {
+                Text(
+                    "Apakah Anda yakin ingin menghapus seluruh riwayat data penjualan, cash flow, dan transaksi kasir menjadi Rp 0? Daftar produk dan menu katalog tetap aman.",
+                    fontSize = 14.sp,
+                    color = Slate700
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.resetSalesAndCashflowToZero()
+                        showResetConfirmationDialog = false
+                        Toast.makeText(context, "Data penjualan & cashflow berhasil direset menjadi 0", Toast.LENGTH_LONG).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RoseRed)
+                ) {
+                    Text("Ya, Reset ke 0", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmationDialog = false }) {
+                    Text("Batal", color = Slate700)
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -358,6 +400,8 @@ fun CloudConnectionHeaderCard(
     userRole: String,
     onSyncClick: () -> Unit,
     onOpenWebClick: () -> Unit,
+    onOpenChromeClick: () -> Unit,
+    onResetClick: () -> Unit,
     onRoleChange: (String) -> Unit
 ) {
     Card(
@@ -428,57 +472,98 @@ fun CloudConnectionHeaderCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Primary Big Button: Buka Dashboard di Chrome
+            Button(
+                onClick = onOpenChromeClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .testTag("open_chrome_dashboard_hero_button"),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.OpenInNew,
+                    contentDescription = "Chrome",
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("🚀 Buka Dashboard Web di Google Chrome", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Button Buka Website
-                Button(
+                OutlinedButton(
                     onClick = onOpenWebClick,
                     modifier = Modifier
                         .weight(1f)
                         .testTag("open_web_portal_button"),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = CoffeeBrown)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate700)
                 ) {
                     Icon(
                         imageVector = Icons.Default.OpenInBrowser,
                         contentDescription = "Website",
-                        modifier = Modifier.size(16.dp)
+                        tint = Slate300,
+                        modifier = Modifier.size(15.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Portal Web", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Portal App", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = White)
                 }
 
                 // Button Sinkronisasi Cloud
-                OutlinedButton(
+                Button(
                     onClick = onSyncClick,
                     enabled = !status.isSyncing,
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1.1f)
                         .testTag("sync_cloud_now_button"),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = GoldAccent
-                    ),
-                    border = ButtonDefaults.outlinedButtonBorder(enabled = true)
+                    colors = ButtonDefaults.buttonColors(containerColor = AmberOrange)
                 ) {
                     if (status.isSyncing) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(14.dp),
-                            color = GoldAccent,
+                            color = Slate900,
                             strokeWidth = 2.dp
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Default.Sync,
                             contentDescription = "Sync",
-                            tint = GoldAccent,
-                            modifier = Modifier.size(16.dp)
+                            tint = Slate900,
+                            modifier = Modifier.size(15.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Sync Cloud", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Sync Cloud", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate900)
+                }
+
+                // Button Reset Data ke 0
+                OutlinedButton(
+                    onClick = onResetClick,
+                    modifier = Modifier
+                        .testTag("reset_sales_data_button"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = RoseRedLight
+                    ),
+                    border = ButtonDefaults.outlinedButtonBorder(enabled = true)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Reset Data",
+                        tint = RoseRedLight,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text("Reset 0", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = RoseRedLight)
                 }
             }
         }

@@ -23,4 +23,7 @@ interface JournalEntryDao {
 
     @Query("DELETE FROM journal_entries WHERE id = :id")
     suspend fun deleteEntry(id: Long)
+
+    @Query("DELETE FROM journal_entries")
+    suspend fun deleteAllJournalEntries()
 }

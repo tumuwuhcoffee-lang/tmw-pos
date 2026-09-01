@@ -841,9 +841,9 @@ private fun ProductDialog(
 ) {
     var name by remember { mutableStateOf(product?.name ?: "") }
     var category by remember { mutableStateOf(product?.category ?: "BAR") }
-    var priceText by remember { mutableStateOf(product?.price?.toLong()?.toString() ?: "15000") }
-    var costPriceText by remember { mutableStateOf(product?.costPrice?.toLong()?.toString() ?: "8000") }
-    var stockText by remember { mutableStateOf(product?.stock?.toString() ?: "20") }
+    var priceText by remember { mutableStateOf(product?.price?.let { if (it > 0) it.toLong().toString() else "" } ?: "") }
+    var costPriceText by remember { mutableStateOf(product?.costPrice?.let { if (it > 0) it.toLong().toString() else "" } ?: "") }
+    var stockText by remember { mutableStateOf(product?.stock?.toString() ?: "") }
     var unit by remember { mutableStateOf(product?.unit ?: "Pcs") }
 
     Dialog(
@@ -852,7 +852,7 @@ private fun ProductDialog(
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
+                .fillMaxWidth(0.94f)
                 .clip(RoundedCornerShape(20.dp)),
             color = White,
             tonalElevation = 6.dp
@@ -874,8 +874,8 @@ private fun ProductDialog(
                         fontWeight = FontWeight.Bold,
                         color = Slate900
                     )
-                    IconButton(onClick = onDismiss) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Slate600)
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(44.dp)) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Slate700, modifier = Modifier.size(22.dp))
                     }
                 }
 
@@ -928,7 +928,8 @@ private fun ProductDialog(
                         Text(text = "Harga Jual (Rp)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
                         OutlinedTextField(
                             value = priceText,
-                            onValueChange = { priceText = it },
+                            onValueChange = { input -> priceText = input.filter { it.isDigit() } },
+                            placeholder = { Text("0", color = Slate400) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             shape = RoundedCornerShape(10.dp),
                             singleLine = true
@@ -938,7 +939,8 @@ private fun ProductDialog(
                         Text(text = "HPP Modal (Rp)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
                         OutlinedTextField(
                             value = costPriceText,
-                            onValueChange = { costPriceText = it },
+                            onValueChange = { input -> costPriceText = input.filter { it.isDigit() } },
+                            placeholder = { Text("0", color = Slate400) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             shape = RoundedCornerShape(10.dp),
                             singleLine = true
@@ -955,7 +957,8 @@ private fun ProductDialog(
                         Text(text = "Stok Awal", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
                         OutlinedTextField(
                             value = stockText,
-                            onValueChange = { stockText = it },
+                            onValueChange = { input -> stockText = input.filter { it.isDigit() } },
+                            placeholder = { Text("0", color = Slate400) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             shape = RoundedCornerShape(10.dp),
                             singleLine = true
@@ -987,7 +990,7 @@ private fun ProductDialog(
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = CrimsonRed),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Hapus", modifier = Modifier.size(16.dp))
+                            Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
                         }
                     }
 
@@ -997,12 +1000,12 @@ private fun ProductDialog(
                             val cost = costPriceText.toDoubleOrNull() ?: 0.0
                             val stock = stockText.toIntOrNull() ?: 0
                             val newProd = (product ?: ProductEntity(name = name, category = category, price = price)).copy(
-                                name = name,
+                                name = name.ifBlank { "Menu Baru" },
                                 category = category,
                                 price = price,
                                 costPrice = cost,
                                 stock = stock,
-                                unit = unit
+                                unit = unit.ifBlank { "Pcs" }
                             )
                             onSave(newProd)
                         },
@@ -1049,13 +1052,13 @@ private fun StockInDialog(
     var customItemName by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("BAR") }
     var customUnit by remember { mutableStateOf("kg") }
-    var supplierName by remember { mutableStateOf("Supplier Utama") }
-    var quantityText by remember { mutableStateOf("5") }
-    var unitPriceText by remember { mutableStateOf("50000") }
+    var supplierName by remember { mutableStateOf("") }
+    var quantityText by remember { mutableStateOf("") }
+    var unitPriceText by remember { mutableStateOf("") }
     var paymentSource by remember { mutableStateOf("KAS_LACI") } // KAS_LACI or BANK_TRANSFER
-    var notes by remember { mutableStateOf("Pengadaan bahan baku operasional") }
+    var notes by remember { mutableStateOf("") }
     var addToCatalog by remember { mutableStateOf(false) }
-    var sellingPriceText by remember { mutableStateOf("75000") }
+    var sellingPriceText by remember { mutableStateOf("") }
 
     // Existing Product Selector
     var selectedProduct by remember { mutableStateOf(products.firstOrNull()) }
@@ -1279,7 +1282,8 @@ private fun StockInDialog(
                             Text(text = "Jumlah Beli (Qty)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
                             OutlinedTextField(
                                 value = quantityText,
-                                onValueChange = { quantityText = it },
+                                onValueChange = { input -> quantityText = input.filter { it.isDigit() } },
+                                placeholder = { Text("0", color = Slate400) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(10.dp),
                                 singleLine = true
@@ -1289,7 +1293,8 @@ private fun StockInDialog(
                             Text(text = "Harga Satuan (Rp)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
                             OutlinedTextField(
                                 value = unitPriceText,
-                                onValueChange = { unitPriceText = it },
+                                onValueChange = { input -> unitPriceText = input.filter { it.isDigit() } },
+                                placeholder = { Text("0", color = Slate400) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(10.dp),
                                 singleLine = true
@@ -1338,6 +1343,7 @@ private fun StockInDialog(
                     OutlinedTextField(
                         value = notes,
                         onValueChange = { notes = it },
+                        placeholder = { Text("Contoh: Pengadaan bahan baku operasional", fontSize = 12.sp, color = Slate400) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         singleLine = true

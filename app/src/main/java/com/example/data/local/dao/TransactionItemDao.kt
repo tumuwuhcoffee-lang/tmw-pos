@@ -23,4 +23,7 @@ interface TransactionItemDao {
 
     @Query("DELETE FROM transaction_items WHERE transactionId = :transactionId")
     suspend fun deleteItemsForTransaction(transactionId: Long)
+
+    @Query("DELETE FROM transaction_items")
+    suspend fun deleteAllTransactionItems()
 }

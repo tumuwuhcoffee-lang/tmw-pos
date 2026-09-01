@@ -308,27 +308,39 @@ fun PosScreen(viewModel: PosViewModel) {
                             }
 
                             // Bluetooth Thermal Printer quick button
-                            IconButton(onClick = { showBluetoothDialog = true }) {
+                            IconButton(
+                                onClick = { showBluetoothDialog = true },
+                                modifier = Modifier.size(44.dp)
+                            ) {
                                 Icon(
                                     imageVector = if (btStatus == BtPrinterStatus.CONNECTED || btStatus == BtPrinterStatus.SIMULATED) Icons.Default.BluetoothConnected else Icons.Default.Bluetooth,
                                     contentDescription = "Printer Bluetooth",
-                                    tint = if (btStatus == BtPrinterStatus.CONNECTED || btStatus == BtPrinterStatus.SIMULATED) EmeraldGreen else Slate600
+                                    tint = if (btStatus == BtPrinterStatus.CONNECTED || btStatus == BtPrinterStatus.SIMULATED) EmeraldGreen else Slate600,
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
 
                             if (activeShift != null) {
-                                IconButton(onClick = { showPettyCashDialog = true }) {
+                                IconButton(
+                                    onClick = { showPettyCashDialog = true },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.SwapHoriz,
                                         contentDescription = "Petty Cash",
-                                        tint = PrimaryBlue
+                                        tint = PrimaryBlue,
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
-                                IconButton(onClick = { showCloseShiftDialog = true }) {
+                                IconButton(
+                                    onClick = { showCloseShiftDialog = true },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Lock,
                                         contentDescription = "Tutup Shift",
-                                        tint = CrimsonRed
+                                        tint = CrimsonRed,
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             } else {
@@ -336,24 +348,28 @@ fun PosScreen(viewModel: PosViewModel) {
                                     onClick = { showOpenShiftDialog = true },
                                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                                     shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.LockOpen,
                                         contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = "Buka Shift", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = "Buka Shift", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
 
                             Box {
-                                IconButton(onClick = { showMoreMenu = true }) {
+                                IconButton(
+                                    onClick = { showMoreMenu = true },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.MoreVert,
                                         contentDescription = "Menu Lainnya",
-                                        tint = Slate700
+                                        tint = Slate700,
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                                 DropdownMenu(

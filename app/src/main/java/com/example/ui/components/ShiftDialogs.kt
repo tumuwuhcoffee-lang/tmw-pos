@@ -98,12 +98,14 @@ fun OpenShiftDialog(
         notes: String
     ) -> Unit
 ) {
-    var cashierName by remember { mutableStateOf("Kasir Utama") }
-    var initialCashText by remember { mutableStateOf("500000") }
-    var initialBarText by remember { mutableStateOf("200000") }
-    var initialBilliardText by remember { mutableStateOf("150000") }
-    var initialGorText by remember { mutableStateOf("150000") }
-    var notes by remember { mutableStateOf("Shift Operasional") }
+    var cashierName by remember { mutableStateOf("Kasir 1") }
+    var initialCashText by remember { mutableStateOf("") }
+    var initialBarText by remember { mutableStateOf("") }
+    var initialBilliardText by remember { mutableStateOf("") }
+    var initialGorText by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+
+    val presetAmounts = listOf(50_000L, 100_000L, 200_000L, 300_000L, 500_000L, 1_000_000L)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -111,7 +113,7 @@ fun OpenShiftDialog(
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
+                .fillMaxWidth(0.94f)
                 .clip(RoundedCornerShape(20.dp)),
             color = White,
             tonalElevation = 6.dp
@@ -130,11 +132,11 @@ fun OpenShiftDialog(
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(44.dp)
                                     .clip(CircleShape)
                                     .background(PrimaryBlueLight),
                                 contentAlignment = Alignment.Center
@@ -143,7 +145,7 @@ fun OpenShiftDialog(
                                     imageVector = Icons.Default.LockOpen,
                                     contentDescription = null,
                                     tint = PrimaryBlue,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                             Column {
@@ -160,8 +162,11 @@ fun OpenShiftDialog(
                                 )
                             }
                         }
-                        IconButton(onClick = onDismiss) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Slate600)
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Slate700, modifier = Modifier.size(22.dp))
                         }
                     }
                 }
@@ -171,6 +176,7 @@ fun OpenShiftDialog(
                     OutlinedTextField(
                         value = cashierName,
                         onValueChange = { cashierName = it },
+                        placeholder = { Text("Contoh: Kasir 1 / Budi", color = Slate400, fontSize = 12.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
@@ -182,13 +188,40 @@ fun OpenShiftDialog(
                 }
 
                 item {
-                    Text(text = "Total Modal Awal (Kas Fisik di Laci)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "Total Modal Awal (Kas Fisik di Laci)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
+                        if (initialCashText.isNotBlank()) {
+                            Text(
+                                text = "Hapus",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CrimsonRed,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable {
+                                        initialCashText = ""
+                                        initialBarText = ""
+                                        initialBilliardText = ""
+                                        initialGorText = ""
+                                    }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = initialCashText,
-                        onValueChange = { initialCashText = it },
+                        onValueChange = { input ->
+                            val clean = input.filter { it.isDigit() }
+                            initialCashText = clean
+                        },
+                        placeholder = { Text("0 (Masukkan nominal modal awal)", color = Slate400, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        prefix = { Text("Rp ", fontWeight = FontWeight.Bold, color = PrimaryBlue) },
+                        prefix = { Text("Rp ", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp) },
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -196,6 +229,38 @@ fun OpenShiftDialog(
                             unfocusedBorderColor = Slate200
                         )
                     )
+
+                    // Quick Preset Chips for Nominal
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(text = "Pilih Cepat Nominal Modal:", fontSize = 11.sp, color = Slate500)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(presetAmounts) { amount ->
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        initialCashText = amount.toString()
+                                    },
+                                color = if (initialCashText == amount.toString()) PrimaryBlue else Slate100,
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (initialCashText == amount.toString()) PrimaryBlue else Slate200
+                                )
+                            ) {
+                                Text(
+                                    text = FormatUtils.formatRupiah(amount.toDouble()),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (initialCashText == amount.toString()) White else Slate800,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Breakdown 3 Category allocation
@@ -210,12 +275,37 @@ fun OpenShiftDialog(
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = "Alokasi Modal Awal per Pintu (Opsional)",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Slate800
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Alokasi Modal Awal per Pintu (Opsional)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate800
+                                )
+                                Text(
+                                    text = "Bagi Rata (1/3)",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PrimaryBlue,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(PrimaryBlueLight)
+                                        .clickable {
+                                            val total = initialCashText.toDoubleOrNull() ?: 0.0
+                                            if (total > 0) {
+                                                val split = (total / 3.0).toLong().toString()
+                                                initialBarText = split
+                                                initialBilliardText = split
+                                                initialGorText = split
+                                            }
+                                        }
+                                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
 
                             // Bar
                             Row(
@@ -233,7 +323,8 @@ fun OpenShiftDialog(
                                 }
                                 OutlinedTextField(
                                     value = initialBarText,
-                                    onValueChange = { initialBarText = it },
+                                    onValueChange = { initialBarText = it.filter { c -> c.isDigit() } },
+                                    placeholder = { Text("0", fontSize = 11.sp, color = Slate400) },
                                     modifier = Modifier.weight(1.5f),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     prefix = { Text("Rp ", fontSize = 11.sp, color = Slate500) },
@@ -258,7 +349,8 @@ fun OpenShiftDialog(
                                 }
                                 OutlinedTextField(
                                     value = initialBilliardText,
-                                    onValueChange = { initialBilliardText = it },
+                                    onValueChange = { initialBilliardText = it.filter { c -> c.isDigit() } },
+                                    placeholder = { Text("0", fontSize = 11.sp, color = Slate400) },
                                     modifier = Modifier.weight(1.5f),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     prefix = { Text("Rp ", fontSize = 11.sp, color = Slate500) },
@@ -283,7 +375,8 @@ fun OpenShiftDialog(
                                 }
                                 OutlinedTextField(
                                     value = initialGorText,
-                                    onValueChange = { initialGorText = it },
+                                    onValueChange = { initialGorText = it.filter { c -> c.isDigit() } },
+                                    placeholder = { Text("0", fontSize = 11.sp, color = Slate400) },
                                     modifier = Modifier.weight(1.5f),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     prefix = { Text("Rp ", fontSize = 11.sp, color = Slate500) },
@@ -296,10 +389,11 @@ fun OpenShiftDialog(
                 }
 
                 item {
-                    Text(text = "Catatan Shift", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
+                    Text(text = "Catatan Shift (Opsional)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
                     OutlinedTextField(
                         value = notes,
                         onValueChange = { notes = it },
+                        placeholder = { Text("Contoh: Shift Pagi / Buka Standar", color = Slate400, fontSize = 12.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true
@@ -311,16 +405,25 @@ fun OpenShiftDialog(
                     Button(
                         onClick = {
                             val totalCash = initialCashText.toDoubleOrNull() ?: 0.0
-                            val barCash = initialBarText.toDoubleOrNull() ?: 0.0
-                            val bilCash = initialBilliardText.toDoubleOrNull() ?: 0.0
-                            val gorCash = initialGorText.toDoubleOrNull() ?: 0.0
-                            onConfirmOpen(cashierName, totalCash, barCash, bilCash, gorCash, notes)
+                            val barCash = initialBarText.toDoubleOrNull() ?: (totalCash / 3.0)
+                            val bilCash = initialBilliardText.toDoubleOrNull() ?: (totalCash / 3.0)
+                            val gorCash = initialGorText.toDoubleOrNull() ?: (totalCash / 3.0)
+                            onConfirmOpen(
+                                cashierName.ifBlank { "Kasir 1" },
+                                totalCash,
+                                barCash,
+                                bilCash,
+                                gorCash,
+                                notes.ifBlank { "Shift Operasional" }
+                            )
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(imageVector = Icons.Default.LockOpen, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(text = "Buka Kasir Sekarang", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
@@ -533,15 +636,35 @@ fun CloseShiftDialog(
 
                 // Input Actual Physical Cash
                 item {
-                    Text(
-                        text = "Input Jumlah Kas Fisik Riil di Laci",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Slate800
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Input Jumlah Kas Fisik Riil di Laci",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate800
+                        )
+                        Text(
+                            text = "Isi Sesuai Sistem",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable {
+                                    actualCashText = expectedCashInDrawer.toLong().toString()
+                                }
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
                     OutlinedTextField(
                         value = actualCashText,
-                        onValueChange = { actualCashText = it },
+                        onValueChange = { input ->
+                            actualCashText = input.filter { it.isDigit() }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         prefix = { Text("Rp ", fontWeight = FontWeight.Bold, color = Slate900) },
@@ -605,11 +728,13 @@ fun CloseShiftDialog(
                         onClick = {
                             onConfirmClose(actualCash, notes.ifBlank { "Tutup shift normal" })
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = CrimsonRed),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(imageVector = Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(text = "Konfirmasi & Tutup Shift", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
@@ -637,10 +762,12 @@ fun PettyCashDialog(
     var businessUnit by remember { mutableStateOf("BAR") }
     var description by remember { mutableStateOf("") }
 
+    val quickPettyCash = listOf(10_000L, 20_000L, 50_000L, 100_000L, 200_000L, 500_000L)
+
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.94f)
                 .clip(RoundedCornerShape(20.dp)),
             color = White,
             tonalElevation = 6.dp
@@ -662,7 +789,7 @@ fun PettyCashDialog(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
                                 .background(PrimaryBlueLight),
                             contentAlignment = Alignment.Center
@@ -671,7 +798,7 @@ fun PettyCashDialog(
                                 imageVector = Icons.Default.SwapHoriz,
                                 contentDescription = null,
                                 tint = PrimaryBlue,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                         Column {
@@ -679,8 +806,8 @@ fun PettyCashDialog(
                             Text(text = "Catat Kas Masuk / Keluar saat shift", fontSize = 12.sp, color = Slate600)
                         }
                     }
-                    IconButton(onClick = onDismiss) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Slate600)
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(44.dp)) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Slate700, modifier = Modifier.size(22.dp))
                     }
                 }
 
@@ -727,17 +854,59 @@ fun PettyCashDialog(
                     }
                 }
 
-                Text(text = "Nominal", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "Nominal", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
+                    if (amountText.isNotBlank()) {
+                        Text(
+                            text = "Hapus",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CrimsonRed,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { amountText = "" }
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                }
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { amountText = it },
+                    onValueChange = { input -> amountText = input.filter { it.isDigit() } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     prefix = { Text("Rp ", fontWeight = FontWeight.Bold, color = Slate900) },
-                    placeholder = { Text("0", color = Slate400) },
+                    placeholder = { Text("0 (Ketik nominal atau pilih cepat)", color = Slate400, fontSize = 12.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
+
+                // Quick Preset Chips
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(quickPettyCash) { amt ->
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { amountText = amt.toString() },
+                            color = if (amountText == amt.toString()) PrimaryBlue else Slate100,
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (amountText == amt.toString()) PrimaryBlue else Slate200)
+                        ) {
+                            Text(
+                                text = FormatUtils.formatRupiah(amt.toDouble()),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (amountText == amt.toString()) White else Slate800,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
 
                 Text(text = "Unit Bisnis", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
                 Row(

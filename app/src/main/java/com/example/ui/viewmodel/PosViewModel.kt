@@ -21,6 +21,8 @@ import com.example.data.model.TaxReportSummary
 import com.example.data.remote.CloudSyncManager
 import com.example.data.remote.CloudSyncStatus
 import com.example.data.repository.PosRepository
+import com.example.util.ReportExportManager
+import com.example.util.WebDashboardHtmlGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -358,8 +360,17 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val trxId = repository.completeTransaction(trx, trxItems)
             val savedTrx = trx.copy(id = trxId)
+            val savedItems = trxItems.map { it.copy(transactionId = trxId) }
             _lastCompletedTransaction.value = savedTrx
-            _lastCompletedItems.value = trxItems.map { it.copy(transactionId = trxId) }
+            _lastCompletedItems.value = savedItems
+
+            val syncStatus = CloudSyncManager.syncState.value
+            if (!syncStatus.isOnline || syncStatus.isOfflineModeManual) {
+                CloudSyncManager.queueOfflineTransaction(savedTrx, savedItems)
+            } else if (syncStatus.autoSyncOnTransaction) {
+                syncOnlineCloudDatabase()
+            }
+
             clearCart()
             onSuccess()
         }
@@ -458,13 +469,22 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.payHeldTransaction(trx, paymentMethod, cashTendered, changeAmount)
             val items = repository.getItemsForTransactionOnce(trx.id)
-            _lastCompletedTransaction.value = trx.copy(
+            val paidTrx = trx.copy(
                 paymentStatus = "PAID",
                 paymentMethod = paymentMethod,
                 cashTendered = cashTendered,
                 changeAmount = changeAmount
             )
+            _lastCompletedTransaction.value = paidTrx
             _lastCompletedItems.value = items
+
+            val syncStatus = CloudSyncManager.syncState.value
+            if (!syncStatus.isOnline || syncStatus.isOfflineModeManual) {
+                CloudSyncManager.queueOfflineTransaction(paidTrx, items)
+            } else if (syncStatus.autoSyncOnTransaction) {
+                syncOnlineCloudDatabase()
+            }
+
             onSuccess()
         }
     }
@@ -1096,13 +1116,30 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     // Action: Trigger Cloud Database Online Synchronization
     fun syncOnlineCloudDatabase() {
         viewModelScope.launch {
-            CloudSyncManager.performOnlineDatabaseSync(recordCount = 24)
+            CloudSyncManager.performOnlineDatabaseSync(
+                transactions = allTransactions.value,
+                items = allTransactionItems.value,
+                cashflows = allCashflows.value,
+                products = allProducts.value,
+                shifts = allShifts.value,
+                recordCount = allTransactions.value.size
+            )
         }
     }
 
-    // Action: Open Web Dashboard in Browser
+    // Action: Open Web Dashboard in Google Chrome / Browser with 100% Live Real-time Database Data
     fun openWebDashboard(context: Context) {
-        CloudSyncManager.openWebDashboard(context)
+        val html = WebDashboardHtmlGenerator.generateDashboardHtml(
+            transactions = allTransactions.value,
+            transactionItems = allTransactionItems.value,
+            cashflows = allCashflows.value,
+            products = allProducts.value,
+            financialSummary = financialStatement.value,
+            taxSummary = taxReportSummary.value
+        )
+        ReportExportManager.openDashboardInBrowser(context, html)
+        // Also perform background cloud sync
+        syncOnlineCloudDatabase()
     }
 
     // Action: Send PO Email to Supplier
@@ -1226,6 +1263,22 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissNotification(id: String) {
         _notifications.value = _notifications.value.filter { it.id != id }
+    }
+
+    // Action: Reset Sales and Cash Flow records to 0
+    fun resetSalesAndCashflowToZero() {
+        viewModelScope.launch {
+            repository.resetSalesAndCashflowToZero()
+            // Also sync empty state to cloud if online
+            CloudSyncManager.performOnlineDatabaseSync(
+                transactions = emptyList(),
+                items = emptyList(),
+                cashflows = emptyList(),
+                products = allProducts.value,
+                shifts = allShifts.value,
+                recordCount = 0
+            )
+        }
     }
 
     companion object {
